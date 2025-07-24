@@ -22,8 +22,9 @@ prompt = {
 }
 prompt_suffix = '/think <|im_end|><|im_start|>assistant\n'
 
-sft_dataset = load_dataset(DATASET_SFT, split=DATASET_SFT_SPLIT)
-rft_dataset = load_dataset(DATASET_RFT, split=DATASET_RFT_SPLIT)
+
+sft_dataset = load_dataset(DATASET_SFT, DATASET_SFT_SPLIT)
+rft_dataset = load_dataset(DATASET_RFT, DATASET_RFT_SPLIT)
 
 def format_medical_data_sft(sample):
     # This function formats a single example for Qwen3's thinking mode
@@ -31,15 +32,8 @@ def format_medical_data_sft(sample):
     # before generating the Response.
     # Qwen3 often uses <think> and </think> tags for its reasoning steps.
     return {
-        "prompt": tokenizer.apply_chat_template(
-            [
-                {"role": "user", "content": f"{prompt['sft']}{sample['Question']}"},
-                {"role": "assistant", "content": f"<think>{sample['Complex_CoT']}</think>{sample['Response']}"}
-            ],
-            tokenize=False,
-            add_generation_prompt=True,
-            # enable_thinking=True is the default for Qwen3 and is handled by the format above
-        )
+        "prompt": f"{prompt['sft']}{sample['Question']}",
+        "completion": f"<think>{sample['Complex_CoT']}</think>{sample['Response']}"
     }
 
 def format_medical_data_grpo(sample):
@@ -47,22 +41,17 @@ def format_medical_data_grpo(sample):
     # The goal is to make the model learn to produce Complex_CoT internally
     # before generating the Response.
     return {
-        "prompt": tokenizer.apply_chat_template(
-            f"{prompt['rft']}{sample['Open-ended Verifiable Question']}",
-            tokenize=False,
-            add_generation_prompt=True,
-            # enable_thinking=True is the default for Qwen3 and is handled by the format above
-        ),
+        "prompt": f"<|im_start|>user\n{prompt['rft']} {sample['Open-ended Verifiable Question']}<|im_end|>\n<|im_start|>assistant\n",
         "answer": sample['Ground-True Answer'],
     }
 
 # Inject prompts to dataset
 # Apply the formatting function
-sft_dataset = sft_dataset.map(format_medical_data_sft)
-# Ensure the 'text' column is the only one used by SFTTrainer
-sft_dataset = sft_dataset.remove_columns([col for col in sft_dataset.column_names if col != 'text'])
+sft_dataset = sft_dataset.map(format_medical_data_sft)['train'].select(range(128))
 
-grpo_dataset = rft_dataset.map()
+# Ensure the 'text' column is the only one used by SFTTrainer
+
+grpo_dataset = rft_dataset.map(format_medical_data_grpo)['train'].select(range(128))
 
 def verifier(model_ans, corr_ans, corr_score=SAMPLE_REWARD, wrong_score=SAMPLE_PENALTY):
     res = []
