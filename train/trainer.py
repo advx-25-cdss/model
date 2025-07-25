@@ -13,7 +13,7 @@ def train():
 
     # --- 4. Set Up Training Arguments ---
     args = extract_kwargs(
-        output_dir="./qwen3_medical_reasoning_sft_bf16", # Directory to save checkpoints
+        output_dir="./qwen3_medical_reasoning", # Directory to save checkpoints
         per_device_train_batch_size=1, # Adjust based on your GPU memory (higher is better if possible)
         gradient_accumulation_steps=4, # Accumulate gradients over N steps to simulate larger batch size
         learning_rate=3e-5, # Standard learning rate for fine-tuning
@@ -26,8 +26,6 @@ def train():
         # You might add evaluation_strategy="steps" and eval_steps if you have a validation set
     )
 
-    training_args = TrainingArguments(**args)
-
     sft_trainer = SFTTrainer(
         model=model,
         train_dataset=sft_dataset,
@@ -35,13 +33,13 @@ def train():
         args=SFTConfig(**args, eos_token="<|im_end|>"),
     )
 
-    # sft_trainer.train()
+    sft_trainer.train()
 
     def reward_funcs(answer: list[str], **kwargs) -> list[float]:
         result = []
         for i in range(len(answer)):
             try:
-                decoded = tokenizer.decode(kwargs["completion_ids"][i])
+                decoded = tokenizer.decode(kwargs["completion_ids"][i], skip_special_tokens=True)
                 print(decoded)
                 answer_part = answer[i].split('</think>')[1].strip()
                 result.append(2.0 if kwargs['answer'][i] in answer_part else -1.0)
@@ -54,7 +52,9 @@ def train():
         **args,
         temperature=SAMPLE_TEMPERATURE,
         top_k=SAMPLE_TOP_K,
-        top_p=SAMPLE_TOP_P
+        top_p=SAMPLE_TOP_P,
+        min_p=0.0,
+        repetition_penalty=0,
     )
     
     grpo_trainer = GRPOTrainer(
@@ -62,7 +62,9 @@ def train():
         train_dataset=grpo_dataset,
         peft_config=peft_config,  # Pass the LoRA configuration
         args=grpo_config,
-        reward_funcs=reward_funcs
+        reward_funcs=reward_funcs,
     )
 
     grpo_trainer.train()
+
+    grpo_trainer.save_model('./qwen3_medical_reasoning')

@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen3-1.7B")
-INIT_LORA_WEIGHTS = os.getenv("INIT_LORA_WEIGHTS", 'pissa_niter_32')
+INIT_LORA_WEIGHTS = os.getenv("INIT_LORA_WEIGHTS", 'pissa_niter_48')
 LORA_RANK = int(os.getenv("LORA_RANK", 8))
 LORA_ALPHA = int(os.getenv("LORA_ALPHA", 16))
 LORA_DROPOUT = float(os.getenv("LORA_DROPOUT", 0.02))

@@ -6,15 +6,9 @@ Steps:
 *Then the model can be used for inference in production*
 3. RLHF (Reinforcement Learning from Human Feedback) -- Data from daily use, pipeline only.
 """
-import gc
-from typing import Literal
-
-import torch
 from datasets import load_dataset
 from settings import DATASET_SFT, DATASET_RFT, DATASET_SFT_SPLIT, DATASET_RFT_SPLIT, SAMPLE_NUM, SAMPLE_BATCH, \
     SAMPLE_REWARD, SAMPLE_PENALTY
-from train.base import accelerator, tokenizer
-from torch.utils.data import Dataset, DataLoader
 
 prompt = {
     'sft': 'You are a medical expert. Now you will be given a medical question, please answer it in detail.',
@@ -23,8 +17,8 @@ prompt = {
 prompt_suffix = '/think <|im_end|><|im_start|>assistant\n'
 
 
-sft_dataset = load_dataset(DATASET_SFT, DATASET_SFT_SPLIT)
-rft_dataset = load_dataset(DATASET_RFT, DATASET_RFT_SPLIT)
+sft_dataset = load_dataset(DATASET_SFT, DATASET_SFT_SPLIT)['train']
+rft_dataset = load_dataset(DATASET_RFT, DATASET_RFT_SPLIT)['train']
 
 def format_medical_data_sft(sample):
     # This function formats a single example for Qwen3's thinking mode
@@ -41,7 +35,7 @@ def format_medical_data_grpo(sample):
     # The goal is to make the model learn to produce Complex_CoT internally
     # before generating the Response.
     return {
-        "prompt": f"<|im_start|>user\n{prompt['rft']} {sample['Open-ended Verifiable Question']}<|im_end|>\n<|im_start|>assistant\n",
+        "prompt": f"<|im_start|>user\n{prompt['rft']} {sample['Open-ended Verifiable Question']} /think <|im_end|>\n<|im_start|>assistant\n",
         "answer": sample['Ground-True Answer'],
     }
 
